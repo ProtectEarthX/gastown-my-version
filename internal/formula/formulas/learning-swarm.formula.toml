@@ -1,0 +1,478 @@
+# Learning Swarm Formula
+#
+# A workflow formula that guides a human learner through a structured
+# coding learning cycle with specialized agent roles at each stage.
+#
+# The learner (crew member) is the one writing code. Agents assist by
+# providing guidance, documentation, review, debugging coaching, and
+# testing — but never write code FOR the learner.
+#
+# Usage:
+#   gt formula run learning-swarm --project="Build a REST API in Go"
+#   gt formula run learning-swarm --project="Create a CLI task tracker" --difficulty=beginner
+
+description = """
+Guided coding learning swarm with specialized agent roles.
+
+A structured learning workflow where the human writes code and AI agents
+play supporting roles: ideation, documentation research, progress monitoring,
+code review, debug coaching, testing, and retrospective.
+
+## Philosophy
+
+The learner does ALL the coding. Agents never write code for you.
+They guide, explain, point to docs, review, and coach — but the
+keyboard is yours.
+
+## Workflow (sequential steps)
+
+1. **Ideation** — Mayor asks what you want to build, helps scope it
+2. **Research** — Tutor polecat finds official docs and learning resources
+3. **Implement** — You write code. Witness monitors your progress.
+4. **Review** — Reviewer polecat checks your code, explains issues
+5. **Debug Coaching** — Debug-coach teaches you to fix issues found
+6. **Testing** — Test polecat runs the test suite, explains failures
+7. **Retrospective** — Mayor reviews the full process, gives learning summary
+
+## Agent Roles
+
+| Agent | Role | Does | Does NOT |
+|-------|------|------|----------|
+| Mayor | Coordinator | Scopes project, tracks progress, gives summary | Write code |
+| Tutor | Documentation guide | Finds official docs, writes study guides | Write code |
+| Witness | Progress monitor | Nudges when stuck, detects stalls | Write code |
+| Reviewer | Code verifier | Reviews code, explains issues | Fix code |
+| Debug Coach | Debugging teacher | Explains errors, teaches strategies | Fix code |
+| Test Runner | Test executor | Runs tests, explains failures clearly | Fix code |
+
+## Key Principle
+
+> Agents that review, coach, and test must EXPLAIN — not FIX.
+> The learner must understand WHY something is wrong and fix it themselves.
+> This is a learning tool, not a code-generation tool.
+"""
+formula = "learning-swarm"
+type = "workflow"
+version = 1
+
+# ============================================================================
+# STEP 1: IDEATION — Mayor helps scope the project
+# ============================================================================
+
+[[steps]]
+id = "ideation"
+title = "Brainstorm and scope: {{project}}"
+description = """
+The Mayor helps the learner define what they want to build.
+
+**Mayor actions:**
+1. Ask the learner about their experience level and goals
+2. Help break the project idea into concrete, achievable tasks
+3. Create beads (issues) for each task
+4. Organize tasks by difficulty and dependency order
+5. Recommend which task to start with
+
+**Create beads for the learning project:**
+```bash
+bd create --title "{{project}}: <task description>" --type task --priority 2
+```
+
+**Output:** A convoy with ordered beads representing the learning project tasks.
+
+**Questions to ask the learner:**
+- What programming language/framework are you learning?
+- What's your current experience level with it?
+- What specific skills do you want to practice?
+- Do you have a deadline or is this open-ended?
+
+**Exit criteria:** Project scoped into 3-7 concrete tasks as beads, ordered by dependency.
+"""
+acceptance = "Project broken into concrete beads, convoy created, learner understands the plan"
+
+# ============================================================================
+# STEP 2: RESEARCH — Tutor finds documentation and learning resources
+# ============================================================================
+
+[[steps]]
+id = "research"
+title = "Research official documentation"
+needs = ["ideation"]
+description = """
+The Tutor polecat researches official documentation for the technology stack.
+
+**Tutor actions:**
+1. Identify the technologies needed for the first task
+2. Find official documentation links (NOT blog posts or tutorials)
+3. Write a concise study guide with:
+   - Key concepts the learner needs to understand
+   - Direct links to relevant official doc pages
+   - Example patterns from the docs
+   - Common pitfalls for beginners
+4. Deliver the study guide to the learner's mailbox
+
+**Priority order for documentation sources:**
+1. Official language/framework documentation
+2. Official package/library documentation
+3. Language specification or RFC
+4. Official examples/tutorials from maintainers
+
+**Study guide format:**
+```markdown
+# Study Guide: <topic>
+
+## Key Concepts
+- Concept 1: <brief explanation> — [Official Docs](<url>)
+- Concept 2: <brief explanation> — [Official Docs](<url>)
+
+## Relevant API Reference
+- <function/type>: <what it does> — [Reference](<url>)
+
+## Patterns You'll Need
+- <pattern name>: <when to use it>
+
+## Common Pitfalls
+- <mistake>: <why it happens and how to avoid it>
+
+## Suggested Reading Order
+1. Start with: <doc page>
+2. Then read: <doc page>
+3. Reference as needed: <doc page>
+```
+
+**Deliver via mail:**
+```bash
+gt mail send <rig>/crew/<learner> -s "Study Guide: <topic>" -m "<study guide>"
+```
+
+**Exit criteria:** Study guide delivered with official doc links for the current task.
+"""
+acceptance = "Study guide with official documentation links delivered to learner"
+
+# ============================================================================
+# STEP 3: IMPLEMENT — Learner writes code, Witness monitors
+# ============================================================================
+
+[[steps]]
+id = "implement"
+title = "Implement: you write the code"
+needs = ["research"]
+description = """
+The learner writes the code. The Witness monitors progress.
+
+**This step is for the HUMAN LEARNER, not an agent.**
+
+The learner should:
+1. Read the study guide from the Tutor
+2. Read the official documentation linked in the guide
+3. Write the code for the current task
+4. Commit frequently with descriptive messages
+5. Ask for help via mail if stuck for more than 15 minutes
+
+**Witness monitoring rules (learning mode):**
+- Check in every 15 minutes (not the normal 5-minute cycle)
+- If no commits in 30 minutes, send an encouraging nudge (not a warning)
+- If stuck, suggest they re-read a specific section of the study guide
+- NEVER suggest code solutions — only suggest which docs to re-read
+- Track time spent to include in the retrospective
+
+**Learner asking for help:**
+```bash
+gt mail send <rig>/witness -s "STUCK: <what I'm trying to do>" -m "I'm trying to: ...
+I've read: ...
+I don't understand: ..."
+```
+
+**Witness response to STUCK:**
+- Point to the specific doc section that covers the topic
+- Ask a guiding question (Socratic method)
+- Suggest breaking the problem into smaller pieces
+- NEVER provide code — only point to documentation
+
+**Exit criteria:** Learner has committed implementation code for the current task.
+"""
+acceptance = "Implementation committed by the learner"
+
+# ============================================================================
+# STEP 4: REVIEW — Reviewer checks the code and explains issues
+# ============================================================================
+
+[[steps]]
+id = "review"
+title = "Code review for learning"
+needs = ["implement"]
+description = """
+The Reviewer polecat reviews the learner's code with an educational focus.
+
+**Reviewer actions:**
+1. Read the learner's diff against the base branch
+2. Identify issues grouped by category (see below)
+3. For EACH issue, explain:
+   - What the problem is
+   - WHY it's a problem (not just "this is wrong")
+   - Which official doc section covers the correct approach
+   - A hint toward the fix (but NOT the fix itself)
+4. Deliver the review to the learner's mailbox
+
+**Review categories (check all):**
+
+| Category | What to Look For |
+|----------|------------------|
+| Correctness | Logic errors, off-by-one, null handling |
+| Idioms | Non-idiomatic code for the language |
+| Naming | Unclear variable/function names |
+| Structure | Functions too long, poor organization |
+| Error Handling | Missing or swallowed errors |
+| Security | Input validation, exposed secrets |
+
+**Review format:**
+```markdown
+# Code Review: <task>
+
+## Overall Impression
+(1-2 sentences — be encouraging, note what's done well)
+
+## Issues Found
+
+### Issue 1: <title>
+- **File:** <file>:<line>
+- **Category:** <category>
+- **What:** <what the problem is>
+- **Why it matters:** <why this is important to fix>
+- **Learn more:** <link to official doc section>
+- **Hint:** <guiding hint, NOT the solution>
+
+## What You Did Well
+(List 2-3 things the learner did right — positive reinforcement matters)
+
+## Suggested Focus Areas
+(1-2 areas the learner should study more)
+```
+
+**CRITICAL: The reviewer must NEVER provide fixed code.**
+Explain the problem, point to docs, give a hint — the learner fixes it.
+
+**Exit criteria:** Educational code review delivered to learner.
+"""
+acceptance = "Code review with explanations and doc links delivered to learner"
+
+# ============================================================================
+# STEP 5: DEBUG COACHING — Teach the learner to debug
+# ============================================================================
+
+[[steps]]
+id = "debug-coaching"
+title = "Debug coaching session"
+needs = ["review"]
+description = """
+The Debug Coach polecat teaches the learner debugging strategies.
+
+**This step activates when the review found issues OR tests fail.**
+If the review was clean and tests pass, this step can be closed quickly
+with a brief note about debugging practices for future reference.
+
+**Debug Coach actions:**
+1. Read the review findings
+2. For each issue, teach a debugging STRATEGY, not the fix:
+   - How to reproduce the problem
+   - How to isolate the cause
+   - Which debugging tools to use
+   - How to verify the fix works
+3. Teach general debugging methodology
+
+**Debugging strategies to teach:**
+
+| Strategy | When to Use | How |
+|----------|-------------|-----|
+| Print debugging | Quick inspection | Add strategic print/log statements |
+| Binary search | "Something broke" | Comment out half the code, narrow down |
+| Rubber duck | Logic confusion | Explain the code out loud line by line |
+| Read the error | Stack traces | Start from the bottom, read the actual message |
+| Check assumptions | "It should work" | Verify each assumption with a print |
+| Minimal repro | Complex bugs | Strip code to smallest failing case |
+
+**Debug coaching format:**
+```markdown
+# Debug Coaching: <task>
+
+## Issue: <issue from review>
+
+### Strategy: <which strategy to use>
+1. First, try: <specific step>
+2. Then check: <what to look for>
+3. The answer is in: <which file/line to examine>
+
+### Debugging Tool
+For this language, use: <tool name>
+```bash
+<how to invoke the debugger>
+```
+Official docs: <link to debugger docs>
+
+### Practice Exercise
+Try using <strategy> to find the bug in <file>.
+Hint: The problem is related to <general area>.
+```
+
+**CRITICAL: The debug coach must NEVER provide the fix.**
+Teach the METHOD of finding the bug. The learner must find and fix it.
+
+**Exit criteria:** Debugging strategies delivered, learner has tools to find and fix issues.
+"""
+acceptance = "Debugging strategies and methodology delivered to learner"
+
+# ============================================================================
+# STEP 6: TESTING — Run tests, explain failures clearly
+# ============================================================================
+
+[[steps]]
+id = "testing"
+title = "Run tests and explain results"
+needs = ["debug-coaching"]
+description = """
+The Test Runner polecat runs the test suite and explains results educationally.
+
+**Test Runner actions:**
+1. Run the configured test command
+2. If tests pass: report success with coverage summary
+3. If tests fail: explain each failure educationally
+4. Suggest additional tests the learner should write
+
+**Run tests:**
+```bash
+{{test_command}}
+```
+
+**If tests fail, explain each failure:**
+```markdown
+# Test Results: <task>
+
+## Summary
+- Passed: X
+- Failed: Y
+- Skipped: Z
+
+## Failure: <test name>
+
+### What the test expected
+<plain English explanation of what the test checks>
+
+### What actually happened
+<plain English explanation of the actual behavior>
+
+### Why this matters
+<what this failure tells you about your code>
+
+### Where to look
+File: <file>:<line range>
+The issue is likely in the <function/method> that handles <what>.
+
+### Learning moment
+This type of failure is called <pattern name>. It happens when <explanation>.
+Official docs on this: <link>
+```
+
+**If all tests pass:**
+```markdown
+# Test Results: <task>
+
+## All tests passed!
+
+## Coverage
+<coverage summary if available>
+
+## Tests you should add
+To make your code more robust, consider adding tests for:
+1. <edge case>: What happens when <scenario>?
+2. <error case>: What if <input> is invalid?
+3. <boundary>: What about <boundary condition>?
+
+## Learning: Writing good tests
+<brief guidance on test-writing best practices for this language>
+Official testing docs: <link>
+```
+
+**Exit criteria:** Test results explained, learner understands any failures.
+"""
+acceptance = "Tests run, results explained educationally, learner understands failures"
+
+# ============================================================================
+# STEP 7: RETROSPECTIVE — Mayor reviews the full learning process
+# ============================================================================
+
+[[steps]]
+id = "retrospective"
+title = "Learning retrospective"
+needs = ["testing"]
+description = """
+The Mayor conducts a learning retrospective across the entire workflow.
+
+**Mayor actions:**
+1. Review the full learning journey:
+   - Time spent on each step
+   - Issues found in review
+   - Debugging strategies used
+   - Test results
+2. Create a learning summary
+3. Identify areas for continued study
+4. Suggest the next task or project
+
+**Retrospective format:**
+```markdown
+# Learning Retrospective: {{project}}
+
+## Journey Summary
+- **Task:** <what was built>
+- **Time spent:** <total time>
+- **Commits:** <number of commits>
+
+## Skills Practiced
+- <skill 1>: <how it was practiced>
+- <skill 2>: <how it was practiced>
+
+## Challenges Overcome
+- <challenge>: <how the learner solved it>
+
+## Review Findings Summary
+- Issues found: <count>
+- Issues fixed: <count>
+- Categories: <which categories appeared most>
+
+## Areas for Growth
+These are areas to focus on in your next project:
+1. <area>: <why and what to study>
+2. <area>: <why and what to study>
+
+## Recommended Next Steps
+Based on your progress, I recommend:
+1. <next task/project suggestion>
+2. <documentation to read>
+3. <concept to practice>
+
+## Encouragement
+<genuine, specific praise about what the learner did well>
+```
+
+**Exit criteria:** Retrospective delivered, learner has a clear path forward.
+"""
+acceptance = "Learning retrospective delivered with growth areas and next steps"
+
+# ============================================================================
+# VARIABLES
+# ============================================================================
+
+[vars]
+[vars.project]
+description = "What the learner wants to build (e.g., 'REST API in Go', 'CLI task tracker')"
+required = true
+
+[vars.difficulty]
+description = "Learner's experience level: beginner, intermediate, advanced"
+default = "beginner"
+
+[vars.test_command]
+description = "Command to run tests (auto-detected from rig settings)"
+default = ""
+
+[vars.learner]
+description = "Name of the crew member who is learning"
+default = ""
