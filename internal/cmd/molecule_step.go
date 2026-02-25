@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/steveyegge/gastown/internal/beads"
+	"github.com/steveyegge/gastown/internal/formula"
 	"github.com/steveyegge/gastown/internal/style"
 	"github.com/steveyegge/gastown/internal/tmux"
 	"github.com/steveyegge/gastown/internal/workspace"
@@ -303,6 +304,10 @@ func handleStepContinue(cwd, townRoot string, nextStep *beads.Issue, dryRun bool
 
 	fmt.Printf("%s Next step pinned: %s\n", style.Bold.Render("📌"), nextStep.ID)
 
+	// Update agent bead sub_role for the next step's specialized template.
+	// Match the step's title back to the formula step to get the role.
+	updateStepSubRole(cwd, townRoot, roleCtx, agentID, nextStep)
+
 	// Respawn the pane
 	if !tmux.IsInsideTmux() {
 		// Not in tmux - just print next action
@@ -491,6 +496,89 @@ func handleMoleculeComplete(cwd, townRoot, moleculeID string, dryRun bool) error
 	// For other roles, just print completion message
 	fmt.Printf("\nMolecule %s is complete. Ready for next assignment.\n", moleculeID)
 	return nil
+}
+
+// updateStepSubRole updates the polecat's agent bead sub_role when transitioning
+// to a new molecule step. This ensures gt prime renders the correct specialized
+// template (e.g., tutor, debug-coach, learner-reviewer) for each step.
+//
+// The function works by:
+// 1. Finding the molecule's parent bead to identify the formula
+// 2. Loading the embedded formula by name
+// 3. Matching the next step's title to a formula step to get its role
+// 4. Updating the agent bead's sub_role field
+//
+// Best-effort: failures are logged as warnings but do not block step transition.
+func updateStepSubRole(cwd, townRoot string, roleCtx RoleContext, agentID string, nextStep *beads.Issue) {
+	if roleCtx.Role != RolePolecat {
+		return // Only polecats use sub-role templates
+	}
+
+	// Find the molecule root bead to extract the formula name.
+	// The molecule step's parent is the molecule root, which was created
+	// by InstantiateFormulaOnBead and has the formula name in its description.
+	moleculeID := extractMoleculeIDFromStep(nextStep.ID)
+	if moleculeID == "" && nextStep.Parent != "" {
+		moleculeID = nextStep.Parent
+	}
+	if moleculeID == "" {
+		return
+	}
+
+	workDir, err := findLocalBeadsDir()
+	if err != nil {
+		return
+	}
+	b := beads.New(workDir)
+	molBead, err := b.Show(moleculeID)
+	if err != nil || molBead == nil {
+		return
+	}
+
+	// Extract formula name from the molecule bead's description.
+	// The description typically contains "formula: <name>" or "instantiated_from: <name>".
+	formulaName := extractFormulaFromMolecule(molBead.Description)
+	if formulaName == "" {
+		return
+	}
+
+	// Load formula and match step title to get role
+	content, err := formula.GetEmbeddedFormulaContent(formulaName)
+	if err != nil {
+		return
+	}
+	f, err := formula.Parse(content)
+	if err != nil {
+		return
+	}
+
+	role := f.GetStepRoleByTitle(nextStep.Title)
+
+	// Update agent bead sub_role (even if empty — clears stale role from previous step)
+	updateAgentSubRole(agentID, role, cwd, "")
+	if role != "" {
+		fmt.Printf("%s Step role: %s\n", style.Dim.Render("🎭"), role)
+	}
+}
+
+// extractFormulaFromMolecule extracts the formula name from a molecule bead's description.
+// Looks for patterns like:
+//
+//	formula: learning-swarm
+//	instantiated_from: learning-swarm
+func extractFormulaFromMolecule(description string) string {
+	for _, line := range strings.Split(description, "\n") {
+		line = strings.TrimSpace(line)
+		for _, prefix := range []string{"formula:", "instantiated_from:"} {
+			if strings.HasPrefix(line, prefix) {
+				name := strings.TrimSpace(strings.TrimPrefix(line, prefix))
+				if name != "" && name != "null" {
+					return name
+				}
+			}
+		}
+	}
+	return ""
 }
 
 // getGitRoot is defined in prime.go

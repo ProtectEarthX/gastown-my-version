@@ -7,6 +7,7 @@ import (
 
 	"github.com/steveyegge/gastown/internal/beads"
 	"github.com/steveyegge/gastown/internal/events"
+	"github.com/steveyegge/gastown/internal/formula"
 	"github.com/steveyegge/gastown/internal/mail"
 	"github.com/steveyegge/gastown/internal/style"
 )
@@ -313,6 +314,15 @@ func executeSling(params SlingParams) (*SlingResult, error) {
 		updateAgentMode(targetAgent, params.Mode, hookWorkDir, beadsDir)
 	}
 
+	// Update agent bead sub_role from formula step role.
+	// When a formula is instantiated, read the first step's role and set it on
+	// the agent bead so gt prime renders the correct specialized template.
+	if params.FormulaName != "" && attachedMoleculeID != "" {
+		if role := resolveFormulaFirstStepRole(params.FormulaName); role != "" {
+			updateAgentSubRole(targetAgent, role, hookWorkDir, beadsDir)
+		}
+	}
+
 	// 11. Start polecat session
 	pane, err := spawnInfo.StartSession()
 	if err != nil {
@@ -326,6 +336,21 @@ func executeSling(params SlingParams) (*SlingResult, error) {
 
 	result.Success = true
 	return result, nil
+}
+
+// resolveFormulaFirstStepRole loads a formula by name (embedded or disk) and
+// returns the role of the first step in topological order.
+// Returns empty string if the formula can't be loaded or has no step roles.
+func resolveFormulaFirstStepRole(formulaName string) string {
+	content, err := formula.GetEmbeddedFormulaContent(formulaName)
+	if err != nil {
+		return ""
+	}
+	f, err := formula.Parse(content)
+	if err != nil {
+		return ""
+	}
+	return f.FirstStepRole()
 }
 
 // findTownRoot is defined in hook.go

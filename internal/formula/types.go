@@ -196,6 +196,38 @@ func (f *Formula) GetStepRole(id string) string {
 	return ""
 }
 
+// GetStepRoleByTitle returns the role for a workflow step matched by title.
+// This is used when mapping molecule step beads (which preserve the formula
+// step's title) back to the formula step to retrieve the role.
+// Returns empty string if the step has no role or is not found.
+func (f *Formula) GetStepRoleByTitle(title string) string {
+	if f.Type != TypeWorkflow {
+		return ""
+	}
+	for _, step := range f.Steps {
+		if step.Title == title {
+			return step.Role
+		}
+	}
+	return ""
+}
+
+// FirstStepRole returns the role of the first step in a workflow formula
+// (topological order). Used when a formula is first instantiated to set the
+// initial polecat sub-role before any step transition has occurred.
+// Returns empty string if the formula has no steps or the first step has no role.
+func (f *Formula) FirstStepRole() string {
+	if f.Type != TypeWorkflow || len(f.Steps) == 0 {
+		return ""
+	}
+	// Use topological sort to find the first step (no dependencies)
+	sorted, err := f.TopologicalSort()
+	if err != nil || len(sorted) == 0 {
+		return ""
+	}
+	return f.GetStepRole(sorted[0])
+}
+
 // GetAllIDs returns all step/leg/template/aspect IDs in the formula.
 func (f *Formula) GetAllIDs() []string {
 	var ids []string
