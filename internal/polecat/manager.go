@@ -481,6 +481,7 @@ func (m *Manager) exists(name string) bool {
 type AddOptions struct {
 	HookBead   string // Bead ID to set as hook_bead at spawn time (atomic assignment)
 	BaseBranch string // Override base branch for worktree (e.g., "origin/integration/gt-epic")
+	SubRole    string // Specialized polecat role from formula step (e.g., "tutor", "debug-coach")
 }
 
 // Add creates a new polecat as a git worktree from the repo base.
@@ -775,6 +776,7 @@ func (m *Manager) AddWithOptions(name string, opts AddOptions) (_ *Polecat, retE
 		Rig:        m.rig.Name,
 		AgentState: "spawning",
 		HookBead:   opts.HookBead, // Set atomically at spawn time
+		SubRole:    opts.SubRole,  // Specialized role from formula step (e.g., "tutor")
 	}); err != nil {
 		// Hard fail — an untrackable polecat is worse than no polecat
 		cleanupOnError()

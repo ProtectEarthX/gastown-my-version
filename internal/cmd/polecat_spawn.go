@@ -52,6 +52,7 @@ type SlingSpawnOptions struct {
 	HookBead   string // Bead ID to set as hook_bead at spawn time (atomic assignment)
 	Agent      string // Agent override for this spawn (e.g., "gemini", "codex", "claude-haiku")
 	BaseBranch string // Override base branch for polecat worktree (e.g., "develop", "release/v2")
+	SubRole    string // Specialized polecat role from formula step (e.g., "tutor", "debug-coach")
 }
 
 // SpawnPolecatForSling creates a fresh polecat and optionally starts its session.
@@ -131,6 +132,7 @@ func SpawnPolecatForSling(rigName string, opts SlingSpawnOptions) (*SpawnedPolec
 		addOpts := polecat.AddOptions{
 			HookBead:   opts.HookBead,
 			BaseBranch: baseBranch,
+			SubRole:    opts.SubRole,
 		}
 		if _, err := polecatMgr.RepairWorktreeWithOptions(polecatName, true, addOpts); err != nil {
 			// Repair failed — fall through to allocate a new polecat
@@ -208,6 +210,7 @@ func SpawnPolecatForSling(rigName string, opts SlingSpawnOptions) (*SpawnedPolec
 	addOpts := polecat.AddOptions{
 		HookBead:   opts.HookBead,
 		BaseBranch: baseBranch,
+		SubRole:    opts.SubRole,
 	}
 
 	if err == nil {

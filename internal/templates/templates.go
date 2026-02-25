@@ -53,6 +53,7 @@ type Templates struct {
 // RoleData contains information for rendering role contexts.
 type RoleData struct {
 	Role           string   // mayor, witness, refinery, polecat, crew, deacon
+	SubRole        string   // specialized polecat role from formula step (e.g., "tutor", "debug-coach")
 	RigName        string   // e.g., "greenplace"
 	TownRoot       string   // e.g., "/Users/steve/ai"
 	TownName       string   // e.g., "ai" - the town identifier for session names
@@ -137,7 +138,20 @@ func New() (*Templates, error) {
 }
 
 // RenderRole renders a role context template.
+// If data.SubRole is set and a matching template exists, it renders the sub-role
+// template instead of the base role template. Falls back to the base role template
+// if the sub-role template is not found.
 func (t *Templates) RenderRole(role string, data RoleData) (string, error) {
+	// Try sub-role template first (e.g., "tutor.md.tmpl" for SubRole="tutor")
+	if data.SubRole != "" {
+		subTemplateName := data.SubRole + ".md.tmpl"
+		var buf bytes.Buffer
+		if err := t.roleTemplates.ExecuteTemplate(&buf, subTemplateName, data); err == nil {
+			return buf.String(), nil
+		}
+		// Sub-role template not found — fall through to base role template
+	}
+
 	templateName := role + ".md.tmpl"
 
 	var buf bytes.Buffer

@@ -35,6 +35,7 @@ type SlingParams struct {
 	HookRawBead bool    // --hook-raw-bead
 	NoBoot     bool     // --no-boot
 	Mode       string   // --ralph: "" (normal) or "ralph"
+	SubRole    string   // Specialized polecat role from formula step (e.g., "tutor", "debug-coach")
 
 	// Execution behavior (set by caller, not serialized to queue)
 	SkipCook         bool   // Batch optimization: formula already cooked
@@ -196,6 +197,7 @@ func executeSling(params SlingParams) (*SlingResult, error) {
 		HookBead:   params.BeadID,
 		Agent:      params.Agent,
 		BaseBranch: params.BaseBranch,
+		SubRole:    params.SubRole,
 		// Create is always true for rig targets: executeSling only handles
 		// rig-targeted dispatch (batch sling + queue dispatch), where a fresh
 		// polecat must be spawned. The single-sling path (runSling) handles
