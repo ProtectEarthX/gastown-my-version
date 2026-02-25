@@ -1078,9 +1078,6 @@ func shouldAcceptPermissionWarning(agentName string) bool {
 	return preset.EmitsPermissionWarning
 }
 
-// updateAgentMode updates the mode field on the agent bead.
-// This is needed so the stuck detector can read the mode from agent fields
-// and apply appropriate thresholds (ralphcats get longer leash).
 // updateAgentSubRole updates the sub_role field on a polecat's agent bead.
 // Called after formula instantiation (initial dispatch) and during step transitions
 // to ensure the polecat renders the correct specialized template at gt prime time.
@@ -1107,6 +1104,9 @@ func updateAgentSubRole(agentID, subRole, workDir, townBeadsDir string) {
 	}
 }
 
+// updateAgentMode updates the mode field on the agent bead.
+// This is needed so the stuck detector can read the mode from agent fields
+// and apply appropriate thresholds (ralphcats get longer leash).
 func updateAgentMode(agentID, mode, workDir, townBeadsDir string) {
 	_ = townBeadsDir // Not used - BEADS_DIR breaks redirect mechanism
 
