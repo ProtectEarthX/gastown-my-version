@@ -1081,6 +1081,32 @@ func shouldAcceptPermissionWarning(agentName string) bool {
 // updateAgentMode updates the mode field on the agent bead.
 // This is needed so the stuck detector can read the mode from agent fields
 // and apply appropriate thresholds (ralphcats get longer leash).
+// updateAgentSubRole updates the sub_role field on a polecat's agent bead.
+// Called after formula instantiation (initial dispatch) and during step transitions
+// to ensure the polecat renders the correct specialized template at gt prime time.
+func updateAgentSubRole(agentID, subRole, workDir, townBeadsDir string) {
+	_ = townBeadsDir // Not used - BEADS_DIR breaks redirect mechanism
+
+	townRoot, err := workspace.FindFromCwd()
+	if err != nil {
+		return
+	}
+	if workDir == "" {
+		workDir = townRoot
+	}
+
+	agentBeadID := agentIDToBeadID(agentID, townRoot)
+	if agentBeadID == "" {
+		return
+	}
+
+	agentWorkDir := beads.ResolveHookDir(townRoot, agentBeadID, workDir)
+	bd := beads.New(agentWorkDir)
+	if err := bd.UpdateAgentSubRole(agentBeadID, subRole); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: couldn't set agent %s sub_role: %v\n", agentBeadID, err)
+	}
+}
+
 func updateAgentMode(agentID, mode, workDir, townBeadsDir string) {
 	_ = townBeadsDir // Not used - BEADS_DIR breaks redirect mechanism
 

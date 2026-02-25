@@ -60,6 +60,28 @@ func GetEmbeddedFormulaContent(name string) ([]byte, error) {
 	return content, nil
 }
 
+// ListEmbeddedFormulaNames returns the base names of all embedded formulas
+// (without the .formula.toml suffix). Used for brute-force step→formula resolution
+// when the formula name is not directly available (e.g., during step transitions).
+func ListEmbeddedFormulaNames() []string {
+	entries, err := formulasFS.ReadDir("formulas")
+	if err != nil {
+		return nil
+	}
+	var names []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if hasFormulaSuffix(name) {
+			name = name[:len(name)-len(".formula.toml")]
+		}
+		names = append(names, name)
+	}
+	return names
+}
+
 // hasFormulaSuffix checks if a name already has a formula file suffix.
 func hasFormulaSuffix(name string) bool {
 	return len(name) > len(".formula.toml") &&

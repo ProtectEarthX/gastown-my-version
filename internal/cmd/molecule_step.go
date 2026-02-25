@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/steveyegge/gastown/internal/beads"
+	"github.com/steveyegge/gastown/internal/formula"
 	"github.com/steveyegge/gastown/internal/style"
 	"github.com/steveyegge/gastown/internal/tmux"
 	"github.com/steveyegge/gastown/internal/workspace"
@@ -303,6 +304,10 @@ func handleStepContinue(cwd, townRoot string, nextStep *beads.Issue, dryRun bool
 
 	fmt.Printf("%s Next step pinned: %s\n", style.Bold.Render("📌"), nextStep.ID)
 
+	// Update agent bead sub_role for the next step's specialized template.
+	// Match the step's title back to the formula step to get the role.
+	updateStepSubRole(cwd, townRoot, roleCtx, agentID, nextStep)
+
 	// Respawn the pane
 	if !tmux.IsInsideTmux() {
 		// Not in tmux - just print next action
@@ -491,6 +496,79 @@ func handleMoleculeComplete(cwd, townRoot, moleculeID string, dryRun bool) error
 	// For other roles, just print completion message
 	fmt.Printf("\nMolecule %s is complete. Ready for next assignment.\n", moleculeID)
 	return nil
+}
+
+// updateStepSubRole updates the polecat's agent bead sub_role when transitioning
+// to a new molecule step. This ensures gt prime renders the correct specialized
+// template (e.g., tutor, debug-coach, learner-reviewer) for each step.
+//
+// The function works by:
+// 1. Parsing the "step: <ref>" field from the step bead description to get the
+//    formula step ID (more robust than title matching — step IDs are unique per formula)
+// 2. Searching all embedded formulas for one that has a step with that ID and a role
+// 3. Updating the agent bead's sub_role field
+//
+// NOTE: Only embedded formulas are searched. Disk-only formulas won't get role routing.
+// Best-effort: failures are logged as warnings but do not block step transition.
+func updateStepSubRole(cwd, townRoot string, roleCtx RoleContext, agentID string, nextStep *beads.Issue) {
+	if roleCtx.Role != RolePolecat {
+		return // Only polecats use sub-role templates
+	}
+
+	// Parse the formula step ref from the step bead's description.
+	// Molecule instantiation stores "step: <ref>" in each step bead's description
+	// (see beads/molecule.go instantiateFromMarkdown).
+	stepRef := extractStepRef(nextStep.Description)
+	if stepRef == "" {
+		// No step ref in description — this step wasn't created from a formula,
+		// or uses the newer template_step format. Clear any stale sub-role.
+		fmt.Fprintf(os.Stderr, "Warning: step %s has no 'step:' field in description, clearing sub-role\n", nextStep.ID)
+		updateAgentSubRole(agentID, "", cwd, "")
+		return
+	}
+
+	// Search all embedded formulas for one that has a step with this ref and a role.
+	// This avoids needing to trace molecule_bead → formula_name (the molecule bead's
+	// "instantiated_from:" field stores a molecule ID, not a formula name).
+	role := resolveStepRoleFromEmbedded(stepRef)
+
+	// Update agent bead sub_role (even if empty — clears stale role from previous step)
+	updateAgentSubRole(agentID, role, cwd, "")
+	if role != "" {
+		fmt.Printf("%s Step role: %s\n", style.Dim.Render("🎭"), role)
+	}
+}
+
+// extractStepRef parses the "step: <ref>" field from a step bead's description.
+// Returns empty string if not found.
+func extractStepRef(description string) string {
+	for _, line := range strings.Split(description, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "step:") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "step:"))
+		}
+	}
+	return ""
+}
+
+// resolveStepRoleFromEmbedded searches all embedded formulas for a step matching
+// the given ref and returns its role. Returns empty string if no formula has a
+// step with this ref that defines a role.
+func resolveStepRoleFromEmbedded(stepRef string) string {
+	for _, name := range formula.ListEmbeddedFormulaNames() {
+		content, err := formula.GetEmbeddedFormulaContent(name)
+		if err != nil {
+			continue
+		}
+		f, err := formula.Parse(content)
+		if err != nil {
+			continue
+		}
+		if role := f.GetStepRole(stepRef); role != "" {
+			return role
+		}
+	}
+	return ""
 }
 
 // getGitRoot is defined in prime.go

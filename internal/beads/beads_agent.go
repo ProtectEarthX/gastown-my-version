@@ -552,6 +552,7 @@ type AgentFieldUpdates struct {
 	ActiveMR          *string
 	NotificationLevel *string
 	Mode              *string
+	SubRole           *string
 }
 
 // UpdateAgentDescriptionFields atomically updates one or more agent description
@@ -595,6 +596,9 @@ func (b *Beads) UpdateAgentDescriptionFields(id string, updates AgentFieldUpdate
 	if updates.Mode != nil {
 		fields.Mode = *updates.Mode
 	}
+	if updates.SubRole != nil {
+		fields.SubRole = *updates.SubRole
+	}
 
 	description := FormatAgentDescription(issue.Title, fields)
 	return b.Update(id, UpdateOptions{Description: &description})
@@ -619,6 +623,14 @@ func (b *Beads) UpdateAgentActiveMR(id string, activeMR string) error {
 // Pass empty string to reset to default (normal).
 func (b *Beads) UpdateAgentNotificationLevel(id string, level string) error {
 	return b.UpdateAgentDescriptionFields(id, AgentFieldUpdates{NotificationLevel: &level})
+}
+
+// UpdateAgentSubRole updates the sub_role field in an agent bead.
+// This is called when a polecat transitions to a new formula step that has a
+// specialized role (e.g., "tutor", "debug-coach", "learner-reviewer").
+// Pass empty string to clear the sub-role (revert to base polecat template).
+func (b *Beads) UpdateAgentSubRole(id string, subRole string) error {
+	return b.UpdateAgentDescriptionFields(id, AgentFieldUpdates{SubRole: &subRole})
 }
 
 // GetAgentNotificationLevel returns the notification level for an agent.
