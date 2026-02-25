@@ -65,8 +65,15 @@ func outputPrimeContext(ctx RoleContext) (string, error) {
 		}
 	}
 
+	// Look up sub-role from agent bead for polecats (formula step specialization)
+	var subRole string
+	if ctx.Role == RolePolecat {
+		subRole = getPolecatSubRole(ctx)
+	}
+
 	data := templates.RoleData{
 		Role:          roleName,
+		SubRole:       subRole,
 		RigName:       ctx.Rig,
 		TownRoot:      ctx.TownRoot,
 		TownName:      townName,
@@ -689,6 +696,31 @@ func outputDeaconPausedMessage(state *deacon.PauseState) {
 	fmt.Println("- Take any autonomous actions")
 	fmt.Println()
 	fmt.Println("You may respond to direct human questions.")
+}
+
+// getPolecatSubRole reads the sub-role from a polecat's agent bead.
+// This enables specialized template selection for formula-assigned roles
+// (e.g., "tutor", "debug-coach", "learner-reviewer").
+// Returns empty string if no sub-role is set or on any error.
+func getPolecatSubRole(ctx RoleContext) string {
+	agentBeadID := getAgentBeadID(ctx)
+	if agentBeadID == "" {
+		return ""
+	}
+
+	hookDir := beads.ResolveHookDir(ctx.TownRoot, agentBeadID, ctx.WorkDir)
+	b := beads.New(hookDir)
+	agentBead, err := b.Show(agentBeadID)
+	if err != nil || agentBead == nil {
+		return ""
+	}
+
+	fields := beads.ParseAgentFields(agentBead.Description)
+	if fields == nil {
+		return ""
+	}
+
+	return fields.SubRole
 }
 
 // explain outputs an explanatory message if --explain mode is enabled.

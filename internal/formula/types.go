@@ -97,6 +97,7 @@ type Step struct {
 	Needs       []string `toml:"needs"`
 	Parallel    bool     `toml:"parallel"`   // If true, this step can run concurrently with other parallel steps that share the same needs
 	Acceptance  string   `toml:"acceptance"` // Exit criteria for this step (used by Ralph loop mode)
+	Role        string   `toml:"role"`       // Optional: specialized polecat role for this step (e.g., "tutor", "debug-coach")
 }
 
 // Template represents a template step in an expansion formula.
@@ -179,6 +180,20 @@ func (f *Formula) GetDependencies(id string) []string {
 		}
 	}
 	return nil
+}
+
+// GetStepRole returns the role for a workflow step by ID.
+// Returns empty string if the step has no role or is not found.
+func (f *Formula) GetStepRole(id string) string {
+	if f.Type != TypeWorkflow {
+		return ""
+	}
+	for _, step := range f.Steps {
+		if step.ID == id {
+			return step.Role
+		}
+	}
+	return ""
 }
 
 // GetAllIDs returns all step/leg/template/aspect IDs in the formula.

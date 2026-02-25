@@ -46,6 +46,7 @@ type AgentFields struct {
 	ActiveMR          string // Currently active merge request bead ID (for traceability)
 	NotificationLevel string // DND mode: verbose, normal, muted (default: normal)
 	Mode              string // Execution mode: "" (normal) or "ralph" (Ralph Wiggum loop)
+	SubRole           string // Specialized polecat role from formula step (e.g., "tutor", "debug-coach")
 	// Note: RoleBead field removed - role definitions are now config-based.
 	// See internal/config/roles/*.toml and config-based-roles.md.
 }
@@ -106,6 +107,10 @@ func FormatAgentDescription(title string, fields *AgentFields) string {
 		lines = append(lines, fmt.Sprintf("mode: %s", fields.Mode))
 	}
 
+	if fields.SubRole != "" {
+		lines = append(lines, fmt.Sprintf("sub_role: %s", fields.SubRole))
+	}
+
 	return strings.Join(lines, "\n")
 }
 
@@ -149,6 +154,8 @@ func ParseAgentFields(description string) *AgentFields {
 			fields.NotificationLevel = value
 		case "mode":
 			fields.Mode = value
+		case "sub_role":
+			fields.SubRole = value
 		}
 	}
 
