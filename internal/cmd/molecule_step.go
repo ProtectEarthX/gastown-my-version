@@ -503,56 +503,34 @@ func handleMoleculeComplete(cwd, townRoot, moleculeID string, dryRun bool) error
 // template (e.g., tutor, debug-coach, learner-reviewer) for each step.
 //
 // The function works by:
-// 1. Finding the molecule's parent bead to identify the formula
-// 2. Loading the embedded formula by name
-// 3. Matching the next step's title to a formula step to get its role
-// 4. Updating the agent bead's sub_role field
+// 1. Parsing the "step: <ref>" field from the step bead description to get the
+//    formula step ID (more robust than title matching — step IDs are unique per formula)
+// 2. Searching all embedded formulas for one that has a step with that ID and a role
+// 3. Updating the agent bead's sub_role field
 //
+// NOTE: Only embedded formulas are searched. Disk-only formulas won't get role routing.
 // Best-effort: failures are logged as warnings but do not block step transition.
 func updateStepSubRole(cwd, townRoot string, roleCtx RoleContext, agentID string, nextStep *beads.Issue) {
 	if roleCtx.Role != RolePolecat {
 		return // Only polecats use sub-role templates
 	}
 
-	// Find the molecule root bead to extract the formula name.
-	// The molecule step's parent is the molecule root, which was created
-	// by InstantiateFormulaOnBead and has the formula name in its description.
-	moleculeID := extractMoleculeIDFromStep(nextStep.ID)
-	if moleculeID == "" && nextStep.Parent != "" {
-		moleculeID = nextStep.Parent
-	}
-	if moleculeID == "" {
+	// Parse the formula step ref from the step bead's description.
+	// Molecule instantiation stores "step: <ref>" in each step bead's description
+	// (see beads/molecule.go instantiateFromMarkdown).
+	stepRef := extractStepRef(nextStep.Description)
+	if stepRef == "" {
+		// No step ref in description — this step wasn't created from a formula,
+		// or uses the newer template_step format. Clear any stale sub-role.
+		fmt.Fprintf(os.Stderr, "Warning: step %s has no 'step:' field in description, clearing sub-role\n", nextStep.ID)
+		updateAgentSubRole(agentID, "", cwd, "")
 		return
 	}
 
-	workDir, err := findLocalBeadsDir()
-	if err != nil {
-		return
-	}
-	b := beads.New(workDir)
-	molBead, err := b.Show(moleculeID)
-	if err != nil || molBead == nil {
-		return
-	}
-
-	// Extract formula name from the molecule bead's description.
-	// The description typically contains "formula: <name>" or "instantiated_from: <name>".
-	formulaName := extractFormulaFromMolecule(molBead.Description)
-	if formulaName == "" {
-		return
-	}
-
-	// Load formula and match step title to get role
-	content, err := formula.GetEmbeddedFormulaContent(formulaName)
-	if err != nil {
-		return
-	}
-	f, err := formula.Parse(content)
-	if err != nil {
-		return
-	}
-
-	role := f.GetStepRoleByTitle(nextStep.Title)
+	// Search all embedded formulas for one that has a step with this ref and a role.
+	// This avoids needing to trace molecule_bead → formula_name (the molecule bead's
+	// "instantiated_from:" field stores a molecule ID, not a formula name).
+	role := resolveStepRoleFromEmbedded(stepRef)
 
 	// Update agent bead sub_role (even if empty — clears stale role from previous step)
 	updateAgentSubRole(agentID, role, cwd, "")
@@ -561,21 +539,33 @@ func updateStepSubRole(cwd, townRoot string, roleCtx RoleContext, agentID string
 	}
 }
 
-// extractFormulaFromMolecule extracts the formula name from a molecule bead's description.
-// Looks for patterns like:
-//
-//	formula: learning-swarm
-//	instantiated_from: learning-swarm
-func extractFormulaFromMolecule(description string) string {
+// extractStepRef parses the "step: <ref>" field from a step bead's description.
+// Returns empty string if not found.
+func extractStepRef(description string) string {
 	for _, line := range strings.Split(description, "\n") {
 		line = strings.TrimSpace(line)
-		for _, prefix := range []string{"formula:", "instantiated_from:"} {
-			if strings.HasPrefix(line, prefix) {
-				name := strings.TrimSpace(strings.TrimPrefix(line, prefix))
-				if name != "" && name != "null" {
-					return name
-				}
-			}
+		if strings.HasPrefix(line, "step:") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "step:"))
+		}
+	}
+	return ""
+}
+
+// resolveStepRoleFromEmbedded searches all embedded formulas for a step matching
+// the given ref and returns its role. Returns empty string if no formula has a
+// step with this ref that defines a role.
+func resolveStepRoleFromEmbedded(stepRef string) string {
+	for _, name := range formula.ListEmbeddedFormulaNames() {
+		content, err := formula.GetEmbeddedFormulaContent(name)
+		if err != nil {
+			continue
+		}
+		f, err := formula.Parse(content)
+		if err != nil {
+			continue
+		}
+		if role := f.GetStepRole(stepRef); role != "" {
+			return role
 		}
 	}
 	return ""
